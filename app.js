@@ -574,7 +574,7 @@ function applyScore(action, points) {
   saveState();
   render();
 
-  // Tillkännage matchboll eller sista chansen för nästa spelare (efter render)
+  // Tillkännage nästa spelare + ev. matchboll/sista chansen (efter render)
   const nextPlayer = state.players[state.currentPlayerIndex];
   if (nextPlayer && !nextPlayer.eliminated) {
     const matchPins = matchPointPins(nextPlayer);
@@ -582,11 +582,13 @@ function applyScore(action, points) {
     if (matchPins.length > 0) {
       vibrate([40, 40, 40]);
       toneMatchball();
-      speak(`Matchboll för ${nextPlayer.name}. Slå pinne ${matchPins[0]} för att vinna.`);
+      speak(`Näst på tur, ${nextPlayer.name}. Matchboll. Slå pinne ${matchPins[0]} för att vinna.`);
     } else if (lastStrike) {
       vibrate([60, 50, 60]);
       toneLastStrike();
-      speak(`${nextPlayer.name}, sista chansen. En miss till och du åker ut.`);
+      speak(`Näst på tur, ${nextPlayer.name}. Sista chansen. En miss till och du åker ut.`);
+    } else {
+      speak(`Näst på tur, ${nextPlayer.name}.`);
     }
   }
 }
@@ -995,7 +997,6 @@ function renderLiveScoreStrip() {
   }).join('');
   return `
     <div class="live-score-strip">
-      <div class="live-score-match" title="Match ${state.matchNumber} av serien">M${state.matchNumber}</div>
       <div class="live-score-list">${items}</div>
     </div>
   `;
@@ -1095,7 +1096,7 @@ function renderGame() {
       ${state.history.length === 0
         ? `<div class="history-empty">Inga kast ännu</div>`
         : `<div class="history-list">
-            ${state.history.slice(0, 15).map(h => {
+            ${state.history.slice(0, 50).map(h => {
               const cls = h.actualScoreChange > 0 ? 'positive' : (h.actualScoreChange < 0 ? 'negative' : 'neutral');
               const sign = h.actualScoreChange > 0 ? '+' : '';
               return `
