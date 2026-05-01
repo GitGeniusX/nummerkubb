@@ -537,13 +537,29 @@ function applyScore(action, points) {
   // Cap history at 50 entries
   if (state.history.length > 50) state.history.length = 50;
 
+  // Bygg en uppläsning av registrerat resultat (används som prefix nedan)
+  const scoreChange = newScore - prevScore;
+  let scoreSpoken;
+  if (actualPoints === 0 && !overshootHappened) {
+    scoreSpoken = `Miss för ${player.name}.`;
+  } else if (overshootHappened) {
+    if (state.overshootRule === 'lose-turn') {
+      scoreSpoken = `${player.name} sköt över ${state.targetScore}, kastet räknas inte. Kvar på ${newScore}.`;
+    } else {
+      scoreSpoken = `${player.name} sköt över ${state.targetScore}, tillbaka till ${newScore}.`;
+    }
+  } else {
+    const poangOrd = actualPoints === 1 ? 'poäng' : 'poäng';
+    scoreSpoken = `${actualPoints} ${poangOrd} till ${player.name}. Totalt ${newScore}.`;
+  }
+
   // Check winner
   if (newScore === state.targetScore) {
     state.winnerId = player.id;
     state.screen = 'finished';
     vibrate([80, 60, 80, 60, 200]);
     toneWinner();
-    speak(`${player.name} vinner matchen med ${state.targetScore} poäng!`);
+    speak(`${actualPoints} poäng. ${player.name} vinner matchen med ${state.targetScore} poäng!`);
     saveState();
     render();
     return;
@@ -556,7 +572,7 @@ function applyScore(action, points) {
     state.screen = 'finished';
     vibrate([80, 60, 80, 60, 200]);
     toneWinner();
-    speak(`${active[0].name} vinner. Övriga slogs ut.`);
+    speak(`${scoreSpoken} ${active[0].name} vinner. Övriga slogs ut.`);
     saveState();
     render();
     return;
@@ -566,6 +582,7 @@ function applyScore(action, points) {
   if (eliminatedNow) {
     vibrate([200, 80, 200]);
     toneEliminated();
+    // Inkludera poängbeskedet i samma uppläsning
     speak(`${player.name} åkte ut, ${state.zerosToEliminate} missar i rad.`);
   }
 
@@ -574,22 +591,25 @@ function applyScore(action, points) {
   saveState();
   render();
 
-  // Tillkännage nästa spelare + ev. matchboll/sista chansen (efter render)
+  // Tillkännage poäng + nästa spelare + ev. matchboll/sista chansen i en mening
   const nextPlayer = state.players[state.currentPlayerIndex];
-  if (nextPlayer && !nextPlayer.eliminated) {
+  if (nextPlayer && !nextPlayer.eliminated && !eliminatedNow) {
     const matchPins = matchPointPins(nextPlayer);
     const lastStrike = isLastStrike(nextPlayer);
     if (matchPins.length > 0) {
       vibrate([40, 40, 40]);
       toneMatchball();
-      speak(`Näst på tur, ${nextPlayer.name}. Matchboll. Slå pinne ${matchPins[0]} för att vinna.`);
+      speak(`${scoreSpoken} Näst på tur, ${nextPlayer.name}. Matchboll. Slå pinne ${matchPins[0]} för att vinna.`);
     } else if (lastStrike) {
       vibrate([60, 50, 60]);
       toneLastStrike();
-      speak(`Näst på tur, ${nextPlayer.name}. Sista chansen. En miss till och du åker ut.`);
+      speak(`${scoreSpoken} Näst på tur, ${nextPlayer.name}. Sista chansen. En miss till och du åker ut.`);
     } else {
-      speak(`Näst på tur, ${nextPlayer.name}.`);
+      speak(`${scoreSpoken} Näst på tur, ${nextPlayer.name}.`);
     }
+  } else if (eliminatedNow && nextPlayer && !nextPlayer.eliminated) {
+    // Efter eliminering: läs upp eliminering + vem som är näst
+    speak(`${player.name} åkte ut, ${state.zerosToEliminate} missar i rad. Näst på tur, ${nextPlayer.name}.`);
   }
 }
 
