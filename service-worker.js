@@ -1,5 +1,5 @@
 // Nummerkubb service worker — cache app shell for offline use
-const CACHE_VERSION = 'nummerkubb-v3';
+const CACHE_VERSION = 'nummerkubb-v4';
 const APP_SHELL = [
   './',
   './index.html',

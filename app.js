@@ -538,19 +538,18 @@ function applyScore(action, points) {
   if (state.history.length > 50) state.history.length = 50;
 
   // Bygg en uppläsning av registrerat resultat (används som prefix nedan)
-  const scoreChange = newScore - prevScore;
+  // Ingen "Totalt X" här – totalen kommer på nästa spelare istället.
   let scoreSpoken;
   if (actualPoints === 0 && !overshootHappened) {
     scoreSpoken = `Miss för ${player.name}.`;
   } else if (overshootHappened) {
     if (state.overshootRule === 'lose-turn') {
-      scoreSpoken = `${player.name} sköt över ${state.targetScore}, kastet räknas inte. Kvar på ${newScore}.`;
+      scoreSpoken = `${player.name} sköt över ${state.targetScore}, kastet räknas inte.`;
     } else {
       scoreSpoken = `${player.name} sköt över ${state.targetScore}, tillbaka till ${newScore}.`;
     }
   } else {
-    const poangOrd = actualPoints === 1 ? 'poäng' : 'poäng';
-    scoreSpoken = `${actualPoints} ${poangOrd} till ${player.name}. Totalt ${newScore}.`;
+    scoreSpoken = `${actualPoints} poäng till ${player.name}.`;
   }
 
   // Check winner
@@ -591,25 +590,31 @@ function applyScore(action, points) {
   saveState();
   render();
 
-  // Tillkännage poäng + nästa spelare + ev. matchboll/sista chansen i en mening
+  // Tillkännage poäng + nästa spelare (med totalpoäng) + ev. matchboll/sista chansen
   const nextPlayer = state.players[state.currentPlayerIndex];
   if (nextPlayer && !nextPlayer.eliminated && !eliminatedNow) {
     const matchPins = matchPointPins(nextPlayer);
     const lastStrike = isLastStrike(nextPlayer);
-    if (matchPins.length > 0) {
+    const nextLead = `Näst på tur, ${nextPlayer.name} med ${nextPlayer.score} poäng.`;
+    if (matchPins.length > 0 && lastStrike) {
+      // Både matchboll OCH sista chansen – läs upp båda
       vibrate([40, 40, 40]);
       toneMatchball();
-      speak(`${scoreSpoken} Näst på tur, ${nextPlayer.name}. Matchboll. Slå pinne ${matchPins[0]} för att vinna.`);
+      speak(`${scoreSpoken} ${nextLead} Matchboll. Slå pinne ${matchPins[0]} för att vinna. Och sista chansen – en miss till och du åker ut.`);
+    } else if (matchPins.length > 0) {
+      vibrate([40, 40, 40]);
+      toneMatchball();
+      speak(`${scoreSpoken} ${nextLead} Matchboll. Slå pinne ${matchPins[0]} för att vinna.`);
     } else if (lastStrike) {
       vibrate([60, 50, 60]);
       toneLastStrike();
-      speak(`${scoreSpoken} Näst på tur, ${nextPlayer.name}. Sista chansen. En miss till och du åker ut.`);
+      speak(`${scoreSpoken} ${nextLead} Sista chansen. En miss till och du åker ut.`);
     } else {
-      speak(`${scoreSpoken} Näst på tur, ${nextPlayer.name}.`);
+      speak(`${scoreSpoken} ${nextLead}`);
     }
   } else if (eliminatedNow && nextPlayer && !nextPlayer.eliminated) {
-    // Efter eliminering: läs upp eliminering + vem som är näst
-    speak(`${player.name} åkte ut, ${state.zerosToEliminate} missar i rad. Näst på tur, ${nextPlayer.name}.`);
+    // Efter eliminering: läs upp eliminering + vem som är näst (med totalpoäng)
+    speak(`${player.name} åkte ut, ${state.zerosToEliminate} missar i rad. Näst på tur, ${nextPlayer.name} med ${nextPlayer.score} poäng.`);
   }
 }
 
@@ -1030,20 +1035,21 @@ function renderGame() {
   const matchPins = matchPointPins(current);
   const hasMatchBall = matchPins.length > 0;
   const lastStrike = isLastStrike(current);
-  const alertMode = hasMatchBall ? 'matchball' : (lastStrike ? 'laststrike' : '');
+  // Visa både matchboll- och sista-chansen-bannern när båda gäller.
+  const alertMode = hasMatchBall ? (lastStrike ? 'matchball-laststrike' : 'matchball') : (lastStrike ? 'laststrike' : '');
 
   return `
     ${renderHeader()}
 
     ${renderLiveScoreStrip()}
 
-    ${alertMode === 'matchball' ? `
+    ${hasMatchBall ? `
       <div class="alert-banner alert-matchball" role="alert">
         <span class="alert-icon">✨</span>
         <span class="alert-text">MATCHBOLL — slå pinne <strong>${matchPins[0]}</strong></span>
       </div>
     ` : ''}
-    ${alertMode === 'laststrike' ? `
+    ${lastStrike ? `
       <div class="alert-banner alert-laststrike" role="alert">
         <span class="alert-icon">⚠</span>
         <span class="alert-text">SISTA CHANSEN — en miss till och du åker ut</span>
